@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-const API_BASE = "http://localhost:8000";
+const API_BASE = "https://movie-recommender-520p.onrender.com";
 const PLACEHOLDER = "https://via.placeholder.com/200x300?text=No+Poster";
 
 function App() {
