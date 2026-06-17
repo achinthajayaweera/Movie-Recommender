@@ -168,7 +168,7 @@ function App() {
 
       {/* Footer */}
       <div style={styles.footer}>
-        <p>Built with ❤️ using React + FastAPI + Scikit-learn</p>
+        <p>Made by <a href="https://wa.me/94761490417" target="_blank" rel="noopener noreferrer" style={{color: '#e50914', textDecoration: 'none', fontWeight: 'bold'}}>ACHINTHA JAYAWEERA</a></p>
       </div>
 
       {/* Spinner keyframe via style tag */}
