@@ -10,7 +10,6 @@ API_KEY = os.getenv("TMDB_API_KEY")
 
 app = FastAPI()
 
-# CORS - allows React frontend to talk to this API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -23,10 +22,30 @@ app.add_middleware(
 movies = pickle.load(open("movies.pkl", "rb"))
 similarity = pickle.load(open("model.pkl", "rb"))
 
+# Print columns to debug
+print("Movies columns:", movies.columns.tolist())
+print("Movies shape:", movies.shape)
+
+# Find the title column - handle different possible names
+title_col = None
+for col in movies.columns:
+    if 'title' in col.lower():
+        title_col = col
+        break
+
+if title_col is None:
+    print("Available columns:", movies.columns.tolist())
+    raise Exception("No title column found in movies.pkl")
+
+print(f"Using title column: '{title_col}'")
+
+# Rename to 'title' if needed
+if title_col != 'title':
+    movies = movies.rename(columns={title_col: 'title'})
+
 movies["title"] = movies["title"].str.lower()
 
 
-# Fetch poster URL from TMDB API
 def fetch_poster(movie_title):
     try:
         url = f"https://api.themoviedb.org/3/search/movie?api_key={API_KEY}&query={movie_title}"
@@ -40,10 +59,8 @@ def fetch_poster(movie_title):
     return ""
 
 
-# Recommendation logic
 def recommend(movie):
     movie = movie.lower()
-
     if movie not in movies["title"].values:
         return []
 
