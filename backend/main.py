@@ -1,6 +1,11 @@
 from fastapi import FastAPI, HTTPException
 import pickle
-import pandas as pd
+import requests
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+API_KEY = os.getenv("TMDB_API_KEY")
 
 app = FastAPI()
 
@@ -8,41 +13,62 @@ app = FastAPI()
 movies = pickle.load(open("movies.pkl", "rb"))
 similarity = pickle.load(open("model.pkl", "rb"))
 
+movies["title"] = movies["title"].str.lower()
+
+
+# Fetch poster URL from TMDB API
+def fetch_poster(movie_title):
+    url = f"https://api.themoviedb.org/3/search/movie?api_key={API_KEY}&query={movie_title}"
+    data = requests.get(url).json()
+
+    if data["results"]:
+        poster_path = data["results"][0].get("poster_path")
+        if poster_path:
+            return f"https://image.tmdb.org/t/p/w500{poster_path}"
+
+    return ""
+
+
+# Recommendation logic with poster fetching
+def recommend(movie):
+    movie = movie.lower()
+
+    if movie not in movies["title"].values:
+        return []
+
+    index = movies[movies["title"] == movie].index[0]
+    scores = similarity[index]
+
+    movie_list = sorted(
+        list(enumerate(scores)),
+        reverse=True,
+        key=lambda x: x[1]
+    )[1:11]
+
+    results = []
+    for i in movie_list:
+        title = movies.iloc[i[0]].title
+        poster = fetch_poster(title)
+        results.append({"title": title, "poster": poster})
+
+    return results
+
 
 @app.get("/")
 def root():
     return {"message": "Movie Recommender API is running"}
 
 
-@app.get("/recommend/{movie_title}")
-def recommend(movie_title: str):
-    # Find the movie in the dataset (case-insensitive)
-    match = movies[movies["title"].str.lower().str.strip() == movie_title.lower().strip()]
-
-    if match.empty:
-        raise HTTPException(status_code=404, detail=f"Movie '{movie_title}' not found")
-
-    index = match.index[0]
-    scores = similarity[index]
-
-    # Sort by similarity score, skip index 0 (the movie itself)
-    movie_list = sorted(list(enumerate(scores)), reverse=True, key=lambda x: x[1])[1:11]
-
-    recommendations = []
-    for i in movie_list:
-        recommendations.append({
-            "title": movies.iloc[i[0]]["title"],
-            "score": round(float(i[1]), 4)
-        })
-
-    return {
-        "movie": movie_title,
-        "recommendations": recommendations
-    }
+@app.get("/search")
+def search_movies(query: str):
+    query = query.lower()
+    matches = movies[movies["title"].str.contains(query)]["title"].head(5)
+    return {"results": matches.tolist()}
 
 
-@app.get("/movies")
-def get_all_movies():
-    # Return all movie titles for reference
-    titles = movies["title"].tolist()
-    return {"total": len(titles), "movies": titles}
+@app.get("/recommend")
+def get_recommendation(movie: str):
+    results = recommend(movie)
+    if not results:
+        raise HTTPException(status_code=404, detail=f"Movie '{movie}' not found")
+    return {"recommendations": results}
